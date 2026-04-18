@@ -1,13 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_CONNECTION_URI")
 }
 
 enum InstanceConnectionStatus {
@@ -59,21 +56,21 @@ enum DifyBotType {
 
 model Instance {
   id                      String                   @id @default(cuid())
-  name                    String                   @unique
+  name                    String                   @unique @db.VarChar(255)
   connectionStatus        InstanceConnectionStatus @default(open)
-  ownerJid                String?
-  profileName             String?
-  profilePicUrl           String?
-  integration             String?
-  number                  String?
-  businessId              String?
-  token                   String?
-  clientName              String?
-  disconnectionReasonCode Int?
-  disconnectionObject     String? // SQLite usa String para JSON
-  disconnectionAt         DateTime?
-  createdAt               DateTime?                @default(now())
-  updatedAt               DateTime?                @updatedAt
+  ownerJid                String?                  @db.VarChar(100)
+  profileName             String?                  @db.VarChar(100)
+  profilePicUrl           String?                  @db.VarChar(500)
+  integration             String?                  @db.VarChar(100)
+  number                  String?                  @db.VarChar(100)
+  businessId              String?                  @db.VarChar(100)
+  token                   String?                  @db.VarChar(255)
+  clientName              String?                  @db.VarChar(100)
+  disconnectionReasonCode Int?                     @db.Integer
+  disconnectionObject     Json?                    @db.JsonB
+  disconnectionAt         DateTime?                @db.Timestamp
+  createdAt               DateTime?                @default(now()) @db.Timestamp
+  updatedAt               DateTime?                @updatedAt @db.Timestamp
   Chat                    Chat[]
   Contact                 Contact[]
   Message                 Message[]
@@ -113,18 +110,18 @@ model Instance {
 model Session {
   id        String   @id @default(cuid())
   sessionId String   @unique
-  creds     String?
-  createdAt DateTime @default(now())
+  creds     String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamp
   Instance  Instance @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
 
 model Chat {
   id             String    @id @default(cuid())
-  remoteJid      String
-  name           String?
-  labels         String? // SQLite usa String para JSON
-  createdAt      DateTime? @default(now())
-  updatedAt      DateTime? @updatedAt
+  remoteJid      String    @db.VarChar(100)
+  name           String?   @db.VarChar(100)
+  labels         Json?     @db.JsonB
+  createdAt      DateTime? @default(now()) @db.Timestamp
+  updatedAt      DateTime? @updatedAt @db.Timestamp
   Instance       Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId     String
   unreadMessages Int       @default(0)
@@ -136,11 +133,11 @@ model Chat {
 
 model Contact {
   id            String    @id @default(cuid())
-  remoteJid     String
-  pushName      String?
-  profilePicUrl String?
-  createdAt     DateTime? @default(now())
-  updatedAt     DateTime? @updatedAt
+  remoteJid     String    @db.VarChar(100)
+  pushName      String?   @db.VarChar(100)
+  profilePicUrl String?   @db.VarChar(500)
+  createdAt     DateTime? @default(now()) @db.Timestamp
+  updatedAt     DateTime? @updatedAt @db.Timestamp
   Instance      Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId    String
 
@@ -151,25 +148,25 @@ model Contact {
 
 model Message {
   id                           String               @id @default(cuid())
-  key                          String // SQLite usa String para JSON
-  pushName                     String?
-  participant                  String?
-  messageType                  String
-  message                      String // SQLite usa String para JSON
-  contextInfo                  String? // SQLite usa String para JSON
+  key                          Json                 @db.JsonB
+  pushName                     String?              @db.VarChar(100)
+  participant                  String?              @db.VarChar(100)
+  messageType                  String               @db.VarChar(100)
+  message                      Json                 @db.JsonB
+  contextInfo                  Json?                @db.JsonB
   source                       DeviceMessage
-  messageTimestamp             Int
-  chatwootMessageId            Int?
-  chatwootInboxId              Int?
-  chatwootConversationId       Int?
-  chatwootContactInboxSourceId String?
-  chatwootIsRead               Boolean?
+  messageTimestamp             Int                  @db.Integer
+  chatwootMessageId            Int?                 @db.Integer
+  chatwootInboxId              Int?                 @db.Integer
+  chatwootConversationId       Int?                 @db.Integer
+  chatwootContactInboxSourceId String?              @db.VarChar(100)
+  chatwootIsRead               Boolean?             @db.Boolean
   Instance                     Instance             @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId                   String
   MessageUpdate                MessageUpdate[]
   Media                        Media?
-  webhookUrl                   String?
-  status                       String?
+  webhookUrl                   String?              @db.VarChar(500)
+  status                       String?              @db.VarChar(30)
   sessionId                    String?
   session                      IntegrationSession?  @relation(fields: [sessionId], references: [id])
 
@@ -178,12 +175,12 @@ model Message {
 
 model MessageUpdate {
   id          String   @id @default(cuid())
-  keyId       String
-  remoteJid   String
-  fromMe      Boolean
-  participant String?
-  pollUpdates String? // SQLite usa String para JSON
-  status      String
+  keyId       String   @db.VarChar(100)
+  remoteJid   String   @db.VarChar(100)
+  fromMe      Boolean  @db.Boolean
+  participant String?  @db.VarChar(100)
+  pollUpdates Json?    @db.JsonB
+  status      String   @db.VarChar(30)
   Message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   messageId   String
   Instance    Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
@@ -195,14 +192,14 @@ model MessageUpdate {
 
 model Webhook {
   id              String    @id @default(cuid())
-  url             String
-  headers         String? // SQLite usa String para JSON
-  enabled         Boolean?  @default(true)
-  events          String? // SQLite usa String para JSON
-  webhookByEvents Boolean?  @default(false)
-  webhookBase64   Boolean?  @default(false)
-  createdAt       DateTime? @default(now())
-  updatedAt       DateTime  @updatedAt
+  url             String    @db.VarChar(500)
+  headers         Json?     @db.JsonB
+  enabled         Boolean?  @default(true) @db.Boolean
+  events          Json?     @db.JsonB
+  webhookByEvents Boolean?  @default(false) @db.Boolean
+  webhookBase64   Boolean?  @default(false) @db.Boolean
+  createdAt       DateTime? @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 
@@ -211,37 +208,37 @@ model Webhook {
 
 model Chatwoot {
   id                      String    @id @default(cuid())
-  enabled                 Boolean?  @default(true)
-  accountId               String?
-  token                   String?
-  url                     String?
-  nameInbox               String?
-  signMsg                 Boolean?  @default(false)
-  signDelimiter           String?
-  number                  String?
-  reopenConversation      Boolean?  @default(false)
-  conversationPending     Boolean?  @default(false)
-  mergeBrazilContacts     Boolean?  @default(false)
-  importContacts          Boolean?  @default(false)
-  importMessages          Boolean?  @default(false)
-  daysLimitImportMessages Int?
-  organization            String?
-  logo                    String?
-  ignoreJids              String? // SQLite usa String para JSON
-  createdAt               DateTime? @default(now())
-  updatedAt               DateTime  @updatedAt
+  enabled                 Boolean?  @default(true) @db.Boolean
+  accountId               String?   @db.VarChar(100)
+  token                   String?   @db.VarChar(100)
+  url                     String?   @db.VarChar(500)
+  nameInbox               String?   @db.VarChar(100)
+  signMsg                 Boolean?  @default(false) @db.Boolean
+  signDelimiter           String?   @db.VarChar(100)
+  number                  String?   @db.VarChar(100)
+  reopenConversation      Boolean?  @default(false) @db.Boolean
+  conversationPending     Boolean?  @default(false) @db.Boolean
+  mergeBrazilContacts     Boolean?  @default(false) @db.Boolean
+  importContacts          Boolean?  @default(false) @db.Boolean
+  importMessages          Boolean?  @default(false) @db.Boolean
+  daysLimitImportMessages Int?      @db.Integer
+  organization            String?   @db.VarChar(100)
+  logo                    String?   @db.VarChar(500)
+  ignoreJids              Json?
+  createdAt               DateTime? @default(now()) @db.Timestamp
+  updatedAt               DateTime  @updatedAt @db.Timestamp
   Instance                Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId              String    @unique
 }
 
 model Label {
   id           String    @id @default(cuid())
-  labelId      String?
-  name         String
-  color        String
-  predefinedId String?
-  createdAt    DateTime? @default(now())
-  updatedAt    DateTime  @updatedAt
+  labelId      String?   @db.VarChar(100)
+  name         String    @db.VarChar(100)
+  color        String    @db.VarChar(100)
+  predefinedId String?   @db.VarChar(100)
+  createdAt    DateTime? @default(now()) @db.Timestamp
+  updatedAt    DateTime  @updatedAt @db.Timestamp
   Instance     Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId   String
 
@@ -250,30 +247,30 @@ model Label {
 
 model Proxy {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  host       String
-  port       String
-  protocol   String
-  username   String
-  password   String
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  host       String    @db.VarChar(100)
+  port       String    @db.VarChar(100)
+  protocol   String    @db.VarChar(100)
+  username   String    @db.VarChar(100)
+  password   String    @db.VarChar(100)
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Setting {
   id              String    @id @default(cuid())
-  rejectCall      Boolean   @default(false)
-  msgCall         String?
-  groupsIgnore    Boolean   @default(false)
-  alwaysOnline    Boolean   @default(false)
-  readMessages    Boolean   @default(false)
-  readStatus      Boolean   @default(false)
-  syncFullHistory Boolean   @default(false)
-  wavoipToken     String?
-  createdAt       DateTime? @default(now())
-  updatedAt       DateTime  @updatedAt
+  rejectCall      Boolean   @default(false) @db.Boolean
+  msgCall         String?   @db.VarChar(100)
+  groupsIgnore    Boolean   @default(false) @db.Boolean
+  alwaysOnline    Boolean   @default(false) @db.Boolean
+  readMessages    Boolean   @default(false) @db.Boolean
+  readStatus      Boolean   @default(false) @db.Boolean
+  syncFullHistory Boolean   @default(false) @db.Boolean
+  wavoipToken     String?   @db.VarChar(100)
+  createdAt       DateTime? @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 
@@ -282,91 +279,91 @@ model Setting {
 
 model Rabbitmq {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  events     String // SQLite usa String para JSON
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  events     Json      @db.JsonB
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Nats {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  events     String // SQLite usa String para JSON
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  events     Json      @db.JsonB
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Sqs {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  events     String // SQLite usa String para JSON
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  events     Json      @db.JsonB
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Kafka {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  events     String // SQLite usa String para JSON
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  events     Json      @db.JsonB
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Websocket {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  events     String // SQLite usa String para JSON
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  events     Json      @db.JsonB
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Pusher {
   id         String    @id @default(cuid())
-  enabled    Boolean   @default(false)
-  appId      String
-  key        String
-  secret     String
-  cluster    String
-  useTLS     Boolean   @default(false)
-  events     String // SQLite usa String para JSON
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  enabled    Boolean   @default(false) @db.Boolean
+  appId      String    @db.VarChar(100)
+  key        String    @db.VarChar(100)
+  secret     String    @db.VarChar(100)
+  cluster    String    @db.VarChar(100)
+  useTLS     Boolean   @default(false) @db.Boolean
+  events     Json      @db.JsonB
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String    @unique
 }
 
 model Typebot {
   id               String           @id @default(cuid())
-  enabled          Boolean          @default(true)
-  description      String?
-  url              String
-  typebot          String
-  expire           Int?             @default(0)
-  keywordFinish    String?
-  delayMessage     Int?
-  unknownMessage   String?
-  listeningFromMe  Boolean?         @default(false)
-  stopBotFromMe    Boolean?         @default(false)
-  keepOpen         Boolean?         @default(false)
-  debounceTime     Int?
-  createdAt        DateTime?        @default(now())
-  updatedAt        DateTime?        @updatedAt
-  ignoreJids       String? // SQLite usa String para JSON
+  enabled          Boolean          @default(true) @db.Boolean
+  description      String?          @db.VarChar(255)
+  url              String           @db.VarChar(500)
+  typebot          String           @db.VarChar(100)
+  expire           Int?             @default(0) @db.Integer
+  keywordFinish    String?          @db.VarChar(100)
+  delayMessage     Int?             @db.Integer
+  unknownMessage   String?          @db.VarChar(100)
+  listeningFromMe  Boolean?         @default(false) @db.Boolean
+  stopBotFromMe    Boolean?         @default(false) @db.Boolean
+  keepOpen         Boolean?         @default(false) @db.Boolean
+  debounceTime     Int?             @db.Integer
+  createdAt        DateTime?        @default(now()) @db.Timestamp
+  updatedAt        DateTime?        @updatedAt @db.Timestamp
+  ignoreJids       Json?
   triggerType      TriggerType?
   triggerOperator  TriggerOperator?
   triggerValue     String?
-  splitMessages    Boolean?         @default(false)
-  timePerChar      Int?             @default(50)
+  splitMessages    Boolean?         @default(false) @db.Boolean
+  timePerChar      Int?             @default(50) @db.Integer
   Instance         Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId       String
   TypebotSetting   TypebotSetting[]
@@ -374,20 +371,20 @@ model Typebot {
 
 model TypebotSetting {
   id                String    @id @default(cuid())
-  expire            Int?      @default(0)
-  keywordFinish     String?
-  delayMessage      Int?
-  unknownMessage    String?
-  listeningFromMe   Boolean?  @default(false)
-  stopBotFromMe     Boolean?  @default(false)
-  keepOpen          Boolean?  @default(false)
-  debounceTime      Int?
-  typebotIdFallback String?
-  ignoreJids        String? // SQLite usa String para JSON
-  splitMessages     Boolean?  @default(false)
-  timePerChar       Int?      @default(50)
-  createdAt         DateTime? @default(now())
-  updatedAt         DateTime  @updatedAt
+  expire            Int?      @default(0) @db.Integer
+  keywordFinish     String?   @db.VarChar(100)
+  delayMessage      Int?      @db.Integer
+  unknownMessage    String?   @db.VarChar(100)
+  listeningFromMe   Boolean?  @default(false) @db.Boolean
+  stopBotFromMe     Boolean?  @default(false) @db.Boolean
+  keepOpen          Boolean?  @default(false) @db.Boolean
+  debounceTime      Int?      @db.Integer
+  typebotIdFallback String?   @db.VarChar(100)
+  ignoreJids        Json?
+  splitMessages     Boolean?  @default(false) @db.Boolean
+  timePerChar       Int?      @default(50) @db.Integer
+  createdAt         DateTime? @default(now()) @db.Timestamp
+  updatedAt         DateTime  @updatedAt @db.Timestamp
   Fallback          Typebot?  @relation(fields: [typebotIdFallback], references: [id])
   Instance          Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId        String    @unique
@@ -395,10 +392,10 @@ model TypebotSetting {
 
 model Media {
   id         String    @id @default(cuid())
-  fileName   String
-  type       String
-  mimetype   String
-  createdAt  DateTime? @default(now())
+  fileName   String    @db.VarChar(500)
+  type       String    @db.VarChar(100)
+  mimetype   String    @db.VarChar(100)
+  createdAt  DateTime? @default(now()) @db.Date
   Message    Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
   messageId  String    @unique
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
@@ -407,10 +404,10 @@ model Media {
 
 model OpenaiCreds {
   id              String        @id @default(cuid())
-  name            String?       @unique
-  apiKey          String?       @unique
-  createdAt       DateTime?     @default(now())
-  updatedAt       DateTime      @updatedAt
+  name            String?       @unique @db.VarChar(255)
+  apiKey          String?       @unique @db.VarChar(255)
+  createdAt       DateTime?     @default(now()) @db.Timestamp
+  updatedAt       DateTime      @updatedAt @db.Timestamp
   Instance        Instance      @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String
   OpenaiAssistant OpenaiBot[]
@@ -419,32 +416,32 @@ model OpenaiCreds {
 
 model OpenaiBot {
   id                String           @id @default(cuid())
-  enabled           Boolean          @default(true)
-  description       String?
+  enabled           Boolean          @default(true) @db.Boolean
+  description       String?          @db.VarChar(255)
   botType           OpenaiBotType
-  assistantId       String?
-  functionUrl       String?
-  model             String?
-  systemMessages    String? // SQLite usa String para JSON
-  assistantMessages String? // SQLite usa String para JSON
-  userMessages      String? // SQLite usa String para JSON
-  maxTokens         Int?
-  expire            Int?             @default(0)
-  keywordFinish     String?
-  delayMessage      Int?
-  unknownMessage    String?
-  listeningFromMe   Boolean?         @default(false)
-  stopBotFromMe     Boolean?         @default(false)
-  keepOpen          Boolean?         @default(false)
-  debounceTime      Int?
-  splitMessages     Boolean?         @default(false)
-  timePerChar       Int?             @default(50)
-  ignoreJids        String? // SQLite usa String para JSON
+  assistantId       String?          @db.VarChar(255)
+  functionUrl       String?          @db.VarChar(500)
+  model             String?          @db.VarChar(100)
+  systemMessages    Json?            @db.JsonB
+  assistantMessages Json?            @db.JsonB
+  userMessages      Json?            @db.JsonB
+  maxTokens         Int?             @db.Integer
+  expire            Int?             @default(0) @db.Integer
+  keywordFinish     String?          @db.VarChar(100)
+  delayMessage      Int?             @db.Integer
+  unknownMessage    String?          @db.VarChar(100)
+  listeningFromMe   Boolean?         @default(false) @db.Boolean
+  stopBotFromMe     Boolean?         @default(false) @db.Boolean
+  keepOpen          Boolean?         @default(false) @db.Boolean
+  debounceTime      Int?             @db.Integer
+  splitMessages     Boolean?         @default(false) @db.Boolean
+  timePerChar       Int?             @default(50) @db.Integer
+  ignoreJids        Json?
   triggerType       TriggerType?
   triggerOperator   TriggerOperator?
   triggerValue      String?
-  createdAt         DateTime?        @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime?        @default(now()) @db.Timestamp
+  updatedAt         DateTime         @updatedAt @db.Timestamp
   OpenaiCreds       OpenaiCreds      @relation(fields: [openaiCredsId], references: [id], onDelete: Cascade)
   openaiCredsId     String
   Instance          Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
@@ -454,81 +451,82 @@ model OpenaiBot {
 
 model IntegrationSession {
   id         String        @id @default(cuid())
-  sessionId  String
-  remoteJid  String
+  sessionId  String        @db.VarChar(255)
+  remoteJid  String        @db.VarChar(100)
   pushName   String?
   status     SessionStatus
-  awaitUser  Boolean       @default(false)
-  context    String? // SQLite usa String para JSON
-  type       String?
-  createdAt  DateTime?     @default(now())
-  updatedAt  DateTime      @updatedAt
+  awaitUser  Boolean       @default(false) @db.Boolean
+  context    Json?
+  type       String?       @db.VarChar(100)
+  createdAt  DateTime?     @default(now()) @db.Timestamp
+  updatedAt  DateTime      @updatedAt @db.Timestamp
   Message    Message[]
   Instance   Instance      @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String
-  parameters String? // SQLite usa String para JSON
-  botId      String?
+  parameters Json?         @db.JsonB
+
+  botId String?
 }
 
 model OpenaiSetting {
   id               String       @id @default(cuid())
-  expire           Int?         @default(0)
-  keywordFinish    String?
-  delayMessage     Int?
-  unknownMessage   String?
-  listeningFromMe  Boolean?     @default(false)
-  stopBotFromMe    Boolean?     @default(false)
-  keepOpen         Boolean?     @default(false)
-  debounceTime     Int?
-  ignoreJids       String? // SQLite usa String para JSON
-  splitMessages    Boolean?     @default(false)
-  timePerChar      Int?         @default(50)
-  speechToText     Boolean?     @default(false)
-  createdAt        DateTime?    @default(now())
-  updatedAt        DateTime     @updatedAt
+  expire           Int?         @default(0) @db.Integer
+  keywordFinish    String?      @db.VarChar(100)
+  delayMessage     Int?         @db.Integer
+  unknownMessage   String?      @db.VarChar(100)
+  listeningFromMe  Boolean?     @default(false) @db.Boolean
+  stopBotFromMe    Boolean?     @default(false) @db.Boolean
+  keepOpen         Boolean?     @default(false) @db.Boolean
+  debounceTime     Int?         @db.Integer
+  ignoreJids       Json?
+  splitMessages    Boolean?     @default(false) @db.Boolean
+  timePerChar      Int?         @default(50) @db.Integer
+  speechToText     Boolean?     @default(false) @db.Boolean
+  createdAt        DateTime?    @default(now()) @db.Timestamp
+  updatedAt        DateTime     @updatedAt @db.Timestamp
   OpenaiCreds      OpenaiCreds? @relation(fields: [openaiCredsId], references: [id])
   openaiCredsId    String       @unique
   Fallback         OpenaiBot?   @relation(fields: [openaiIdFallback], references: [id])
-  openaiIdFallback String?
+  openaiIdFallback String?      @db.VarChar(100)
   Instance         Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId       String       @unique
 }
 
 model Template {
   id         String    @id @default(cuid())
-  templateId String    @unique
-  name       String    @unique
-  template   String // SQLite usa String para JSON
-  webhookUrl String?
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime  @updatedAt
+  templateId String    @unique @db.VarChar(255)
+  name       String    @unique @db.VarChar(255)
+  template   Json      @db.JsonB
+  webhookUrl String?   @db.VarChar(500)
+  createdAt  DateTime? @default(now()) @db.Timestamp
+  updatedAt  DateTime  @updatedAt @db.Timestamp
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String
 }
 
 model Dify {
   id               String           @id @default(cuid())
-  enabled          Boolean          @default(true)
-  description      String?
+  enabled          Boolean          @default(true) @db.Boolean
+  description      String?          @db.VarChar(255)
   botType          DifyBotType
-  apiUrl           String?
-  apiKey           String?
-  expire           Int?             @default(0)
-  keywordFinish    String?
-  delayMessage     Int?
-  unknownMessage   String?
-  listeningFromMe  Boolean?         @default(false)
-  stopBotFromMe    Boolean?         @default(false)
-  keepOpen         Boolean?         @default(false)
-  debounceTime     Int?
-  ignoreJids       String? // SQLite usa String para JSON
-  splitMessages    Boolean?         @default(false)
-  timePerChar      Int?             @default(50)
+  apiUrl           String?          @db.VarChar(255)
+  apiKey           String?          @db.VarChar(255)
+  expire           Int?             @default(0) @db.Integer
+  keywordFinish    String?          @db.VarChar(100)
+  delayMessage     Int?             @db.Integer
+  unknownMessage   String?          @db.VarChar(100)
+  listeningFromMe  Boolean?         @default(false) @db.Boolean
+  stopBotFromMe    Boolean?         @default(false) @db.Boolean
+  keepOpen         Boolean?         @default(false) @db.Boolean
+  debounceTime     Int?             @db.Integer
+  ignoreJids       Json?
+  splitMessages    Boolean?         @default(false) @db.Boolean
+  timePerChar      Int?             @default(50) @db.Integer
   triggerType      TriggerType?
   triggerOperator  TriggerOperator?
   triggerValue     String?
-  createdAt        DateTime?        @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime?        @default(now()) @db.Timestamp
+  updatedAt        DateTime         @updatedAt @db.Timestamp
   Instance         Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId       String
   DifySetting      DifySetting[]
@@ -536,47 +534,47 @@ model Dify {
 
 model DifySetting {
   id              String    @id @default(cuid())
-  expire          Int?      @default(0)
-  keywordFinish   String?
-  delayMessage    Int?
-  unknownMessage  String?
-  listeningFromMe Boolean?  @default(false)
-  stopBotFromMe   Boolean?  @default(false)
-  keepOpen        Boolean?  @default(false)
-  debounceTime    Int?
-  ignoreJids      String? // SQLite usa String para JSON
-  splitMessages   Boolean?  @default(false)
-  timePerChar     Int?      @default(50)
-  createdAt       DateTime? @default(now())
-  updatedAt       DateTime  @updatedAt
+  expire          Int?      @default(0) @db.Integer
+  keywordFinish   String?   @db.VarChar(100)
+  delayMessage    Int?      @db.Integer
+  unknownMessage  String?   @db.VarChar(100)
+  listeningFromMe Boolean?  @default(false) @db.Boolean
+  stopBotFromMe   Boolean?  @default(false) @db.Boolean
+  keepOpen        Boolean?  @default(false) @db.Boolean
+  debounceTime    Int?      @db.Integer
+  ignoreJids      Json?
+  splitMessages   Boolean?  @default(false) @db.Boolean
+  timePerChar     Int?      @default(50) @db.Integer
+  createdAt       DateTime? @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
   Fallback        Dify?     @relation(fields: [difyIdFallback], references: [id])
-  difyIdFallback  String?
+  difyIdFallback  String?   @db.VarChar(100)
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 }
 
 model EvolutionBot {
   id                  String                @id @default(cuid())
-  enabled             Boolean               @default(true)
-  description         String?
-  apiUrl              String?
-  apiKey              String?
-  expire              Int?                  @default(0)
-  keywordFinish       String?
-  delayMessage        Int?
-  unknownMessage      String?
-  listeningFromMe     Boolean?              @default(false)
-  stopBotFromMe       Boolean?              @default(false)
-  keepOpen            Boolean?              @default(false)
-  debounceTime        Int?
-  ignoreJids          String? // SQLite usa String para JSON
-  splitMessages       Boolean?              @default(false)
-  timePerChar         Int?                  @default(50)
+  enabled             Boolean               @default(true) @db.Boolean
+  description         String?               @db.VarChar(255)
+  apiUrl              String?               @db.VarChar(255)
+  apiKey              String?               @db.VarChar(255)
+  expire              Int?                  @default(0) @db.Integer
+  keywordFinish       String?               @db.VarChar(100)
+  delayMessage        Int?                  @db.Integer
+  unknownMessage      String?               @db.VarChar(100)
+  listeningFromMe     Boolean?              @default(false) @db.Boolean
+  stopBotFromMe       Boolean?              @default(false) @db.Boolean
+  keepOpen            Boolean?              @default(false) @db.Boolean
+  debounceTime        Int?                  @db.Integer
+  ignoreJids          Json?
+  splitMessages       Boolean?              @default(false) @db.Boolean
+  timePerChar         Int?                  @default(50) @db.Integer
   triggerType         TriggerType?
   triggerOperator     TriggerOperator?
   triggerValue        String?
-  createdAt           DateTime?             @default(now())
-  updatedAt           DateTime              @updatedAt
+  createdAt           DateTime?             @default(now()) @db.Timestamp
+  updatedAt           DateTime              @updatedAt @db.Timestamp
   Instance            Instance              @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId          String
   EvolutionBotSetting EvolutionBotSetting[]
@@ -584,47 +582,47 @@ model EvolutionBot {
 
 model EvolutionBotSetting {
   id              String        @id @default(cuid())
-  expire          Int?          @default(0)
-  keywordFinish   String?
-  delayMessage    Int?          @default(0)
-  unknownMessage  String?
-  listeningFromMe Boolean?      @default(false)
-  stopBotFromMe   Boolean?      @default(false)
-  keepOpen        Boolean?      @default(false)
-  debounceTime    Int?
-  ignoreJids      String? // SQLite usa String para JSON
-  splitMessages   Boolean?      @default(false)
-  timePerChar     Int?          @default(50)
-  createdAt       DateTime?     @default(now())
-  updatedAt       DateTime      @updatedAt
+  expire          Int?          @default(0) @db.Integer
+  keywordFinish   String?       @db.VarChar(100)
+  delayMessage    Int?          @db.Integer
+  unknownMessage  String?       @db.VarChar(100)
+  listeningFromMe Boolean?      @default(false) @db.Boolean
+  stopBotFromMe   Boolean?      @default(false) @db.Boolean
+  keepOpen        Boolean?      @default(false) @db.Boolean
+  debounceTime    Int?          @db.Integer
+  ignoreJids      Json?
+  splitMessages   Boolean?      @default(false) @db.Boolean
+  timePerChar     Int?          @default(50) @db.Integer
+  createdAt       DateTime?     @default(now()) @db.Timestamp
+  updatedAt       DateTime      @updatedAt @db.Timestamp
   Fallback        EvolutionBot? @relation(fields: [botIdFallback], references: [id])
-  botIdFallback   String?
+  botIdFallback   String?       @db.VarChar(100)
   Instance        Instance      @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String        @unique
 }
 
 model Flowise {
   id               String           @id @default(cuid())
-  enabled          Boolean          @default(true)
-  description      String?
-  apiUrl           String?
-  apiKey           String?
-  expire           Int?             @default(0)
-  keywordFinish    String?
-  delayMessage     Int?
-  unknownMessage   String?
-  listeningFromMe  Boolean?         @default(false)
-  stopBotFromMe    Boolean?         @default(false)
-  keepOpen         Boolean?         @default(false)
-  debounceTime     Int?
-  ignoreJids       String? // SQLite usa String para JSON
-  splitMessages    Boolean?         @default(false)
-  timePerChar      Int?             @default(50)
+  enabled          Boolean          @default(true) @db.Boolean
+  description      String?          @db.VarChar(255)
+  apiUrl           String?          @db.VarChar(255)
+  apiKey           String?          @db.VarChar(255)
+  expire           Int?             @default(0) @db.Integer
+  keywordFinish    String?          @db.VarChar(100)
+  delayMessage     Int?             @db.Integer
+  unknownMessage   String?          @db.VarChar(100)
+  listeningFromMe  Boolean?         @default(false) @db.Boolean
+  stopBotFromMe    Boolean?         @default(false) @db.Boolean
+  keepOpen         Boolean?         @default(false) @db.Boolean
+  debounceTime     Int?             @db.Integer
+  ignoreJids       Json?
+  splitMessages    Boolean?         @default(false) @db.Boolean
+  timePerChar      Int?             @default(50) @db.Integer
   triggerType      TriggerType?
   triggerOperator  TriggerOperator?
   triggerValue     String?
-  createdAt        DateTime?        @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime?        @default(now()) @db.Timestamp
+  updatedAt        DateTime         @updatedAt @db.Timestamp
   Instance         Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId       String
   FlowiseSetting   FlowiseSetting[]
@@ -632,57 +630,57 @@ model Flowise {
 
 model FlowiseSetting {
   id                String    @id @default(cuid())
-  expire            Int?      @default(0)
-  keywordFinish     String?
-  delayMessage      Int?
-  unknownMessage    String?
-  listeningFromMe   Boolean?  @default(false)
-  stopBotFromMe     Boolean?  @default(false)
-  keepOpen          Boolean?  @default(false)
-  debounceTime      Int?
-  ignoreJids        String? // SQLite usa String para JSON
-  splitMessages     Boolean?  @default(false)
-  timePerChar       Int?      @default(50)
-  createdAt         DateTime? @default(now())
-  updatedAt         DateTime  @updatedAt
+  expire            Int?      @default(0) @db.Integer
+  keywordFinish     String?   @db.VarChar(100)
+  delayMessage      Int?      @db.Integer
+  unknownMessage    String?   @db.VarChar(100)
+  listeningFromMe   Boolean?  @default(false) @db.Boolean
+  stopBotFromMe     Boolean?  @default(false) @db.Boolean
+  keepOpen          Boolean?  @default(false) @db.Boolean
+  debounceTime      Int?      @db.Integer
+  ignoreJids        Json?
+  splitMessages     Boolean?  @default(false) @db.Boolean
+  timePerChar       Int?      @default(50) @db.Integer
+  createdAt         DateTime? @default(now()) @db.Timestamp
+  updatedAt         DateTime  @updatedAt @db.Timestamp
   Fallback          Flowise?  @relation(fields: [flowiseIdFallback], references: [id])
-  flowiseIdFallback String?
+  flowiseIdFallback String?   @db.VarChar(100)
   Instance          Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId        String    @unique
 }
 
 model IsOnWhatsapp {
   id         String   @id @default(cuid())
-  remoteJid  String   @unique
+  remoteJid  String   @unique @db.VarChar(100)
   jidOptions String
-  lid        String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  lid        String?  @db.VarChar(100)
+  createdAt  DateTime @default(now()) @db.Timestamp
+  updatedAt  DateTime @updatedAt @db.Timestamp
 }
 
 model N8n {
   id               String           @id @default(cuid())
-  enabled          Boolean          @default(true)
-  description      String?
-  webhookUrl       String?
-  basicAuthUser    String?
-  basicAuthPass    String?
-  expire           Int?             @default(0)
-  keywordFinish    String?
-  delayMessage     Int?
-  unknownMessage   String?
-  listeningFromMe  Boolean?         @default(false)
-  stopBotFromMe    Boolean?         @default(false)
-  keepOpen         Boolean?         @default(false)
-  debounceTime     Int?
-  ignoreJids       String? // SQLite usa String para JSON
-  splitMessages    Boolean?         @default(false)
-  timePerChar      Int?             @default(50)
+  enabled          Boolean          @default(true) @db.Boolean
+  description      String?          @db.VarChar(255)
+  webhookUrl       String?          @db.VarChar(255)
+  basicAuthUser    String?          @db.VarChar(255)
+  basicAuthPass    String?          @db.VarChar(255)
+  expire           Int?             @default(0) @db.Integer
+  keywordFinish    String?          @db.VarChar(100)
+  delayMessage     Int?             @db.Integer
+  unknownMessage   String?          @db.VarChar(100)
+  listeningFromMe  Boolean?         @default(false) @db.Boolean
+  stopBotFromMe    Boolean?         @default(false) @db.Boolean
+  keepOpen         Boolean?         @default(false) @db.Boolean
+  debounceTime     Int?             @db.Integer
+  ignoreJids       Json?
+  splitMessages    Boolean?         @default(false) @db.Boolean
+  timePerChar      Int?             @default(50) @db.Integer
   triggerType      TriggerType?
   triggerOperator  TriggerOperator?
   triggerValue     String?
-  createdAt        DateTime?        @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime?        @default(now()) @db.Timestamp
+  updatedAt        DateTime         @updatedAt @db.Timestamp
   Instance         Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId       String
   N8nSetting       N8nSetting[]
@@ -690,47 +688,47 @@ model N8n {
 
 model N8nSetting {
   id              String    @id @default(cuid())
-  expire          Int?      @default(0)
-  keywordFinish   String?
-  delayMessage    Int?
-  unknownMessage  String?
-  listeningFromMe Boolean?  @default(false)
-  stopBotFromMe   Boolean?  @default(false)
-  keepOpen        Boolean?  @default(false)
-  debounceTime    Int?
-  ignoreJids      String? // SQLite usa String para JSON
-  splitMessages   Boolean?  @default(false)
-  timePerChar     Int?      @default(50)
-  createdAt       DateTime? @default(now())
-  updatedAt       DateTime  @updatedAt
+  expire          Int?      @default(0) @db.Integer
+  keywordFinish   String?   @db.VarChar(100)
+  delayMessage    Int?      @db.Integer
+  unknownMessage  String?   @db.VarChar(100)
+  listeningFromMe Boolean?  @default(false) @db.Boolean
+  stopBotFromMe   Boolean?  @default(false) @db.Boolean
+  keepOpen        Boolean?  @default(false) @db.Boolean
+  debounceTime    Int?      @db.Integer
+  ignoreJids      Json?
+  splitMessages   Boolean?  @default(false) @db.Boolean
+  timePerChar     Int?      @default(50) @db.Integer
+  createdAt       DateTime? @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
   Fallback        N8n?      @relation(fields: [n8nIdFallback], references: [id])
-  n8nIdFallback   String?
+  n8nIdFallback   String?   @db.VarChar(100)
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 }
 
 model Evoai {
   id               String           @id @default(cuid())
-  enabled          Boolean          @default(true)
-  description      String?
-  agentUrl         String?
-  apiKey           String?
-  expire           Int?             @default(0)
-  keywordFinish    String?
-  delayMessage     Int?
-  unknownMessage   String?
-  listeningFromMe  Boolean?         @default(false)
-  stopBotFromMe    Boolean?         @default(false)
-  keepOpen         Boolean?         @default(false)
-  debounceTime     Int?
-  ignoreJids       String? // SQLite usa String para JSON
-  splitMessages    Boolean?         @default(false)
-  timePerChar      Int?             @default(50)
+  enabled          Boolean          @default(true) @db.Boolean
+  description      String?          @db.VarChar(255)
+  agentUrl         String?          @db.VarChar(255)
+  apiKey           String?          @db.VarChar(255)
+  expire           Int?             @default(0) @db.Integer
+  keywordFinish    String?          @db.VarChar(100)
+  delayMessage     Int?             @db.Integer
+  unknownMessage   String?          @db.VarChar(100)
+  listeningFromMe  Boolean?         @default(false) @db.Boolean
+  stopBotFromMe    Boolean?         @default(false) @db.Boolean
+  keepOpen         Boolean?         @default(false) @db.Boolean
+  debounceTime     Int?             @db.Integer
+  ignoreJids       Json?
+  splitMessages    Boolean?         @default(false) @db.Boolean
+  timePerChar      Int?             @default(50) @db.Integer
   triggerType      TriggerType?
   triggerOperator  TriggerOperator?
   triggerValue     String?
-  createdAt        DateTime?        @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime?        @default(now()) @db.Timestamp
+  updatedAt        DateTime         @updatedAt @db.Timestamp
   Instance         Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId       String
   EvoaiSetting     EvoaiSetting[]
@@ -738,21 +736,21 @@ model Evoai {
 
 model EvoaiSetting {
   id              String    @id @default(cuid())
-  expire          Int?      @default(0)
-  keywordFinish   String?
-  delayMessage    Int?
-  unknownMessage  String?
-  listeningFromMe Boolean?  @default(false)
-  stopBotFromMe   Boolean?  @default(false)
-  keepOpen        Boolean?  @default(false)
-  debounceTime    Int?
-  ignoreJids      String? // SQLite usa String para JSON
-  splitMessages   Boolean?  @default(false)
-  timePerChar     Int?      @default(50)
-  createdAt       DateTime? @default(now())
-  updatedAt       DateTime  @updatedAt
+  expire          Int?      @default(0) @db.Integer
+  keywordFinish   String?   @db.VarChar(100)
+  delayMessage    Int?      @db.Integer
+  unknownMessage  String?   @db.VarChar(100)
+  listeningFromMe Boolean?  @default(false) @db.Boolean
+  stopBotFromMe   Boolean?  @default(false) @db.Boolean
+  keepOpen        Boolean?  @default(false) @db.Boolean
+  debounceTime    Int?      @db.Integer
+  ignoreJids      Json?
+  splitMessages   Boolean?  @default(false) @db.Boolean
+  timePerChar     Int?      @default(50) @db.Integer
+  createdAt       DateTime? @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
   Fallback        Evoai?    @relation(fields: [evoaiIdFallback], references: [id])
-  evoaiIdFallback String?
+  evoaiIdFallback String?   @db.VarChar(100)
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 }

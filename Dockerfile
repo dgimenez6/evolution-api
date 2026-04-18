@@ -11,22 +11,25 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY tsup.config.ts ./
 
-# 2. Instalamos dependencias
+# 2. Instalamos dependencias (incluye Prisma)
 RUN npm ci --silent
 
-# 3. Copiamos la carpeta prisma
+# 3. Copiamos la carpeta prisma 
+# IMPORTANTE: Asegurate de que el archivo adentro se llame schema.prisma
 COPY ./prisma ./prisma
 
-# 4. Generamos el cliente usando el archivo que renombramos
+# 4. Generamos el cliente de Prisma
+# Esto debe ir ANTES del build para que TypeScript reconozca los modelos
 RUN npx prisma generate --schema ./prisma/schema.prisma
 
-# 5. Copiamos el resto y construimos
+# 5. Copiamos el código fuente y construimos
 COPY ./src ./src
 COPY ./public ./public
 COPY ./manager ./manager
 COPY ./runWithProvider.js ./
 COPY ./Docker ./Docker
 
+# 6. Compilamos el proyecto
 RUN npm run build
 
 # ESTADIO 2: Ejecución
@@ -41,6 +44,7 @@ ENV NODE_ENV=production
 
 WORKDIR /evolution
 
+# Copiamos lo construido y las dependencias
 COPY --from=builder /evolution/package.json ./package.json
 COPY --from=builder /evolution/package-lock.json ./package-lock.json
 COPY --from=builder /evolution/node_modules ./node_modules
@@ -49,6 +53,8 @@ COPY --from=builder /evolution/prisma ./prisma
 COPY --from=builder /evolution/public ./public
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 
+# Exponemos el puerto de Railway
 EXPOSE 8080
 
+# Arrancamos directo. Sin scripts intermedios que busquen archivos .env
 CMD ["node", "dist/main.js"]
