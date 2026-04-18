@@ -57,4 +57,5 @@ COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 EXPOSE 8080
 
 # Arrancamos directo. Sin scripts intermedios que busquen archivos .env
-CMD ["node", "dist/main.js"]
+# Cambiamos el inicio para que primero cree las tablas y después arranque la app
+CMD ["sh", "-c", "npx prisma db push && node dist/main.js"]
